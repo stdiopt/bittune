@@ -1,0 +1,242 @@
+<html>
+	<head>
+		<style>
+			#beat { display:flex; flex-flow:row; }
+			.step { background: #aaa;}
+			.step:nth-child(2n+1) { background: #afafaf; }
+			.step:nth-child(4n+1) { background: #919191; }
+			.step.current { box-shadow: 0 0 10px red; z-index:100;}
+			.key { width:40px;height:30px;border: solid 1px black; cursor:pointer; transition: all .3s}
+			.key.active { background: yellow; box-shadow: 0 0 10px yellow; z-index:200;}
+		</style>
+	</head>
+	<body>
+		<h2>Bittune</h2>
+		Browser needs user interaction to allow sound (click anywhere)
+
+		<div id="beat"></div>
+		<input id="bpm" type="range" min="20" max="140">
+		<label for="bpm">80 bpm</label>
+	</body>
+	<script>
+		const AudioContext = window.AudioContext || window.webkitAudioContext
+		const ctx = new AudioContext()
+		const ins = [playKick,playSnare,playCHithat,playOHithat,
+			createTune(523.3), createTune(554.4), createTune(587.3),
+			createTune(622.3), createTune(659.3), createTune(698.5),
+			createTune(740.0), createTune(784.0), createTune(830.6),
+			createTune(880.0), createTune(932.3), createTune(987.8)
+		]
+		// Instruments
+		function playKick() {
+			const g = ctx.createGain()
+			g.connect(ctx.destination)
+			g.gain.value = 0.3
+			g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.06)
+			const f = ctx.createBiquadFilter()
+			f.type = 'lowpass'
+			f.frequency.setValueAtTime(2000,ctx.currentTime)
+			f.frequency.linearRampToValueAtTime(200,ctx.currentTime+0.01)
+			f.connect(g)
+
+			const o = ctx.createOscillator()
+			o.type = 'sawtooth'
+			o.frequency.value = 80
+			o.connect(f)
+			o.start()
+			o.stop(ctx.currentTime + 0.03)
+
+			const o2 = ctx.createOscillator()
+			o2.type = 'sine'
+			o2.frequency.value = 10
+			o2.connect(g)
+			o2.start()
+			o2.stop(ctx.currentTime + 0.06)
+
+			wn.connect(f)
+			setTimeout(() => g.disconnect(), 100)
+		}
+		function playSnare(freq) {
+			const g = ctx.createGain()
+			g.connect(ctx.destination)
+			g.gain.value = 0.5
+			g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+			const f = ctx.createBiquadFilter();
+			f.type = 'bandpass';
+			f.frequency.linearRampToValueAtTime(100,ctx.currentTime+0.1);
+			f.connect(g)
+			const o = ctx.createOscillator()
+			o.type = 'sawtooth'
+			o.frequency.value= 200 
+			o.connect(f)
+			o.start()
+			o.stop(ctx.currentTime+0.01)
+
+			wn.connect(f)
+			setTimeout(() => g.disconnect(), 100)
+		}
+		function playCHithat(freq) {
+			const g = ctx.createGain()
+			g.connect(ctx.destination)
+			g.gain.value = 0.04
+			g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.02)
+			const f = ctx.createBiquadFilter();
+			f.type = 'highpass';
+			f.frequency.value = 4000
+			f.connect(g)
+			const o = ctx.createOscillator()
+			o.frequency.value = 1000;
+			o.start()
+			o.stop(ctx.currentTime+0.001);
+			o.connect(f)
+			wn.connect(f)
+			setTimeout(() => g.disconnect(), 100)
+		}
+		function playOHithat(freq) {
+			const g = ctx.createGain()
+			g.connect(ctx.destination)
+			g.gain.value = 0.03
+			g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2)
+
+			const f = ctx.createBiquadFilter();
+			f.type = 'highpass';
+			f.frequency.value = 2000
+			f.connect(g)
+			const o = ctx.createOscillator()
+			o.frequency.value = 1000;
+			o.start()
+			o.stop(ctx.currentTime+0.001);
+			o.connect(g)
+			wn.connect(f)
+			setTimeout(() => g.disconnect(), 400)
+		}
+		// to use lstFreq per instrument
+		function createTune(freq) {
+			return function playTune() {
+				const g = ctx.createGain()
+				g.connect(ctx.destination)
+				g.gain.value = 0.03
+				g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2);
+
+				const o = ctx.createOscillator()
+				o.type = 'sine'
+				o.frequency.linearRampToValueAtTime(freq, ctx.currentTime + 0.02)
+				o.connect(g)
+				o.start()
+				o.stop(ctx.currentTime + 2)
+				o.onended = () => g.disconnect()
+			}
+		}
+		function whiteNoise() {
+			const bufferSize = 4096;
+			const n = ctx.createScriptProcessor(bufferSize, 1, 1);
+			n.onaudioprocess = (e) => {
+				let output = e.outputBuffer.getChannelData(0);
+				for (let i = 0; i < bufferSize; i++) {
+					output[i] = Math.random() * 2 - 1;
+				}
+			}
+			return n
+		}
+		wn = whiteNoise()
+
+		// Settings and data
+		let trackLen = 32
+		let steps = new Array(trackLen*ins.length).fill(0)
+		let BPM = 80
+		let curStep = 0
+
+		///////////////////////////////////////
+		// User interface and DOM manipulation
+		////////////////////////////////////
+
+		var beatEl = document.querySelector('#beat')
+		// Generate the squares (keys)
+		for (let i =0;i<steps.length/ins.length;i++) {
+			stepHTML = ''
+			for(let j =0;j<ins.length;j++) {
+				stepHTML += `<div class="key" key="${i*ins.length+j}" ></div>`
+			}
+			beatEl.innerHTML += `<div class="step ${(i%4)==0?'mark':''}">${stepHTML}</div>`
+		}
+		window.addEventListener("click", (ev) => {
+			if (!ev.target.matches('.key')) { return }
+			keyI = ev.target.getAttribute('key')
+			steps[keyI] = steps[keyI]?0:1
+			ev.target.classList.toggle('active',!!steps[keyI])
+			hashStore()
+		})
+		window.addEventListener('hashchange', hashRestore)
+
+		var bpmEl = document.querySelector('#bpm')
+		bpmEl.addEventListener('input',el => {
+			bpmSet(bpmEl.value)
+			hashStore()
+		})
+
+		// Helper to set the range element and label
+		function bpmSet(val) {
+			BPM = parseInt(val)
+			bpmEl.value = val
+			bpmEl.nextElementSibling.innerHTML = BPM + " bpm"
+		}
+
+		// Convert bits array into hexString 
+		function hashStore() {
+			const bytes = [0]
+			for(var i =0;i<steps.length;i++) {
+				if (i !=0 && i % 8 == 0) { bytes.push(0) }
+				bytes[bytes.length-1] |= steps[i] << 7-(i%8)
+			}
+			d = [BPM].concat(bytes)
+			window.history.pushState(d,'', '#' + toHexString(d))
+		}
+		// Restore hashString into the bit array
+		function hashRestore() {
+			if (location.hash.length == 0) { return }
+			data = toByteArray(location.hash.substring(1))
+			BPM = data[0]
+			bytes = data.slice(1)
+			steps = []
+			for(let i = 0;i<bytes.length;i++) {
+				for (let j = 7;j>=0;j--) {
+					v = (bytes[i] >> j) & 1
+					steps.push(v)
+					document.querySelector(`[key="${steps.length-1}"]`).classList.toggle('active',v)
+				}
+			}
+			bpmSet(BPM)
+		}
+		// Set moves forward in the track and updates UI
+		function step() {
+			// Disable current
+			beatEl.children[curStep].classList.toggle("current",false)		
+			curStep = (curStep+1)%trackLen
+			beatEl.children[curStep].classList.toggle("current",true)
+			for (let i =0;i<ins.length;i++)  {
+				steps[curStep*ins.length+i] && ins[i]()
+			}
+			setTimeout(step,60000/BPM/4)
+		}
+		// stackoverflow
+		function toHexString(byteArray) {
+			return Array.from(byteArray, function(byte) {
+				return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+			}).join('')
+		}
+		function toByteArray(hexString) {
+			var result = [];
+			while (hexString.length >= 2) {
+				result.push(parseInt(hexString.substring(0, 2), 16));
+				hexString = hexString.substring(2, hexString.length);
+			}
+			return result;
+		}
+
+		// START
+		
+		hashRestore()
+		step()
+				
+	</script>
+</html>
