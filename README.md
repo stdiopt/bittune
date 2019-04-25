@@ -1,6 +1,6 @@
 # bittune
 
-(experiment) Minimal pure JS sequencer
+(experiment) Minimal vanilla JS sequencer
 
 https://stdiopt.github.io/bittune
 
